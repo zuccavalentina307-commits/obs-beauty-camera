@@ -61,7 +61,7 @@ obs-beauty-camera/
 └─ README.zh-CN.md                                中文说明（本文件）
 ```
 
-安装包在 Releases 页面下载，文件名 `美颜相机插件_v2.1.0.zip`；解压后把 `obs-plugins` 与 `data` 合并进 OBS 安装目录即可。也可以直接用仓库里的 `data/obs-plugins/obs-beauty-camera/` 覆盖 OBS 对应目录，再自行编译 `src/plugin.c` 放入 `obs-plugins/64bit/`。
+安装包在 Releases 页面下载，文件名 `obs-beauty-camera-2.1.0.zip`；解压后把 `obs-plugins` 与 `data` 合并进 OBS 安装目录即可。也可以直接用仓库里的 `data/obs-plugins/obs-beauty-camera/` 覆盖 OBS 对应目录，再自行编译 `src/plugin.c` 放入 `obs-plugins/64bit/`。
 
 ## 两种使用方式
 

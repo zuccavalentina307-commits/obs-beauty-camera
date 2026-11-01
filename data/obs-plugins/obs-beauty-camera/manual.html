@@ -1,0 +1,564 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>美颜相机插件 v2.1.0 · 使用说明书</title>
+<style>
+  :root {
+    --bg: #0e1116;
+    --bg-soft: #151a22;
+    --card: #1a212b;
+    --card-2: #202936;
+    --line: #2b3644;
+    --text: #e8edf4;
+    --muted: #9aa8ba;
+    --accent: #5ec8c0;
+    --accent-2: #e7b96a;
+    --good: #7fd68d;
+    --warn: #e7b96a;
+    --danger: #ef8f8f;
+    --radius: 14px;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    background:
+      radial-gradient(1200px 600px at 85% -10%, rgba(94, 200, 192, .14), transparent 60%),
+      radial-gradient(900px 500px at -10% 30%, rgba(231, 185, 106, .10), transparent 60%),
+      var(--bg);
+    color: var(--text);
+    font-family: "Segoe UI", "Microsoft YaHei UI", "Microsoft YaHei", "PingFang SC", sans-serif;
+    line-height: 1.75;
+    font-size: 15.5px;
+  }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  .page { max-width: 1180px; margin: 0 auto; padding: 40px 24px 80px; }
+  header.hero {
+    position: relative;
+    overflow: hidden;
+    border: 1px solid var(--line);
+    border-radius: 22px;
+    background: linear-gradient(135deg, rgba(94,200,192,.16), rgba(32,41,54,.85) 45%, rgba(231,185,106,.10));
+    padding: 42px 42px 34px;
+    margin-bottom: 28px;
+  }
+  header.hero::after {
+    content: "";
+    position: absolute;
+    right: -90px; top: -90px;
+    width: 280px; height: 280px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(94,200,192,.28), transparent 65%);
+  }
+  .eyebrow {
+    display: inline-flex; align-items: center; gap: 8px;
+    font-size: 12.5px; letter-spacing: .16em; text-transform: uppercase;
+    color: var(--accent); font-weight: 600;
+  }
+  .eyebrow::before { content: ""; width: 26px; height: 2px; background: var(--accent); border-radius: 2px; }
+  h1 { margin: 14px 0 10px; font-size: clamp(30px, 4.4vw, 46px); line-height: 1.16; letter-spacing: -.02em; }
+  h1 .ver {
+    display: inline-block; vertical-align: middle;
+    font-size: 15px; letter-spacing: .04em; font-weight: 600;
+    color: #10231f; background: var(--accent);
+    padding: 4px 12px; border-radius: 999px; margin-left: 12px; transform: translateY(-4px);
+  }
+  .lead { margin: 0; max-width: 760px; color: #c8d3e0; font-size: 16.5px; }
+  .badges { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 22px; }
+  .badge {
+    font-size: 13px; color: #cfe9e5; background: rgba(94,200,192,.10);
+    border: 1px solid rgba(94,200,192,.32); border-radius: 999px; padding: 5px 13px;
+  }
+  .badge.gold { color: #f2d9a8; background: rgba(231,185,106,.09); border-color: rgba(231,185,106,.32); }
+  nav.toc {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 12px; margin: 26px 0 34px;
+  }
+  nav.toc a {
+    display: flex; align-items: center; gap: 10px;
+    border: 1px solid var(--line); border-radius: 12px;
+    background: rgba(26,33,43,.75); padding: 12px 14px;
+    color: var(--text); font-size: 14px; transition: .18s ease;
+  }
+  nav.toc a:hover { border-color: rgba(94,200,192,.55); background: var(--card-2); text-decoration: none; transform: translateY(-1px); }
+  nav.toc b {
+    display: inline-grid; place-items: center;
+    width: 24px; height: 24px; border-radius: 8px;
+    background: rgba(94,200,192,.14); color: var(--accent);
+    font-size: 12.5px;
+  }
+  section {
+    border: 1px solid var(--line); border-radius: var(--radius);
+    background: linear-gradient(180deg, rgba(26,33,43,.92), rgba(21,26,34,.92));
+    padding: 30px 32px; margin-bottom: 22px;
+  }
+  h2 {
+    display: flex; align-items: center; gap: 12px;
+    margin: 0 0 18px; font-size: 23px; letter-spacing: -.01em;
+  }
+  h2 .num {
+    display: inline-grid; place-items: center;
+    min-width: 34px; height: 34px; padding: 0 8px;
+    border-radius: 10px; background: rgba(94,200,192,.13);
+    color: var(--accent); font-size: 14px;
+  }
+  h3 { margin: 26px 0 10px; font-size: 17.5px; color: #f2f6fb; }
+  p { margin: 9px 0; }
+  .muted { color: var(--muted); }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; margin: 18px 0 6px; }
+  .card {
+    border: 1px solid var(--line); border-radius: 12px;
+    background: var(--card-2); padding: 18px 20px;
+  }
+  .card h4 { margin: 0 0 8px; font-size: 15.5px; color: var(--accent); }
+  .card p, .card li { font-size: 14.5px; color: #c6d1de; }
+  .card ol, .card ul { margin: 8px 0 0; padding-left: 20px; }
+  .steps { counter-reset: step; list-style: none; padding: 0; margin: 16px 0; }
+  .steps > li {
+    position: relative; padding: 0 0 10px 50px; margin: 0;
+    counter-increment: step;
+  }
+  .steps > li::before {
+    content: counter(step);
+    position: absolute; left: 0; top: 1px;
+    width: 30px; height: 30px; border-radius: 50%;
+    display: grid; place-items: center;
+    background: rgba(94,200,192,.14); border: 1px solid rgba(94,200,192,.42);
+    color: var(--accent); font-weight: 700; font-size: 13.5px;
+  }
+  .steps > li::after {
+    content: ""; position: absolute; left: 15px; top: 34px; bottom: 0;
+    width: 1px; background: var(--line);
+  }
+  .steps > li:last-child::after { display: none; }
+  .tree {
+    font-family: "Cascadia Mono", Consolas, "Courier New", monospace;
+    font-size: 13.5px; line-height: 1.7;
+    background: #0d1319; border: 1px solid var(--line); border-radius: 12px;
+    padding: 18px 20px; overflow-x: auto; color: #c6d4e2; margin: 14px 0;
+  }
+  .tree .dir { color: var(--accent-2); }
+  .tree .note { color: #7f8fa2; }
+  code {
+    font-family: "Cascadia Mono", Consolas, monospace;
+    font-size: .92em; background: #0d1319; border: 1px solid var(--line);
+    border-radius: 6px; padding: 1px 6px; color: #cfe9e5;
+  }
+  .callout {
+    display: flex; gap: 12px; align-items: flex-start;
+    border-radius: 12px; padding: 14px 18px; margin: 14px 0;
+    border: 1px solid rgba(231,185,106,.36); background: rgba(231,185,106,.07);
+  }
+  .callout::before { content: "!"; flex: none; display: grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; background: var(--warn); color: #1d1608; font-weight: 800; font-size: 13px; margin-top: 2px; }
+  .callout.info { border-color: rgba(94,200,192,.36); background: rgba(94,200,192,.07); }
+  .callout.info::before { content: "i"; background: var(--accent); color: #06201d; }
+  .callout p { margin: 0; font-size: 14.5px; color: #d8e2ec; }
+  .table-wrap { overflow-x: auto; margin: 14px 0; border: 1px solid var(--line); border-radius: 12px; }
+  table { width: 100%; border-collapse: collapse; font-size: 14.3px; min-width: 640px; }
+  th, td { text-align: left; padding: 11px 14px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { background: rgba(94,200,192,.08); color: #dff4f1; font-weight: 600; font-size: 13.5px; letter-spacing: .02em; white-space: nowrap; }
+  tbody tr:nth-child(even) { background: rgba(255,255,255,.018); }
+  tbody tr:last-child td { border-bottom: none; }
+  td strong { color: #f3f7fb; font-weight: 600; }
+  .tag { display: inline-block; font-size: 12px; padding: 1px 8px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); margin-left: 4px; }
+  .tag.rec { color: #f2d9a8; border-color: rgba(231,185,106,.45); background: rgba(231,185,106,.08); }
+  .qa { border-top: 1px solid var(--line); padding: 16px 0 4px; }
+  .qa:first-of-type { border-top: none; padding-top: 4px; }
+  .qa h4 { margin: 0 0 6px; font-size: 15.5px; color: #f2f6fb; }
+  .qa p { margin: 0; color: #b9c6d5; font-size: 14.5px; }
+  .contact-card {
+    max-width: 780px; margin: 20px auto 22px; padding: 12px;
+    background: #fff; border: 1px solid var(--line); border-radius: 18px;
+    box-shadow: 0 20px 60px rgba(0,0,0,.35);
+  }
+  .contact-card img { display: block; width: 100%; height: auto; border-radius: 10px; }
+  .contact-card figcaption {
+    margin: 10px 4px 2px; text-align: center;
+    color: #5a6472; font-size: 13px;
+  }
+  footer { margin-top: 30px; text-align: center; color: #7f8fa2; font-size: 13px; }
+  .kbd { font-family: Consolas, monospace; background: #0d1319; border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 6px; padding: 0 7px; font-size: .9em; }
+  @media (max-width: 640px) {
+    .page { padding: 20px 14px 60px; }
+    header.hero { padding: 28px 22px; border-radius: 16px; }
+    section { padding: 22px 18px; }
+  }
+  @media print {
+    body { background: #fff; color: #111; }
+    header.hero, section { background: #fff; border-color: #ccc; }
+    .toc { display: none; }
+    a { color: #0a6; }
+    .tree, code { background: #f4f4f4; color: #222; }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+<header class="hero">
+  <div class="eyebrow">OBS Studio · 本地美颜插件</div>
+  <h1>美颜相机插件 <span class="ver">v2.1.0</span></h1>
+  <p class="lead">完全本地运行的 OBS 美颜方案：自动面部追踪、磨皮祛斑、美白红润、眼部牙齿、黑眼圈、立体修容、美妆、滤镜色调、瘦脸大眼、美体与背景虚化、画面特效与左右分屏对比。无需联网、无需账号、无需会员。</p>
+  <div class="badges">
+    <span class="badge">自动加载</span>
+    <span class="badge">Direct3D 11 GPU 加速</span>
+    <span class="badge">最多 3 张脸追踪</span>
+    <span class="badge gold">内置这份说明书</span>
+  </div>
+</header>
+
+<nav class="toc">
+  <a href="#install"><b>1</b>安装与自动加载</a>
+  <a href="#usage"><b>2</b>两种使用方式</a>
+  <a href="#preset"><b>3</b>推荐起点：精致</a>
+  <a href="#params"><b>4</b>参数说明</a>
+  <a href="#tips"><b>5</b>调参建议</a>
+  <a href="#faq"><b>6</b>常见问题</a>
+  <a href="#uninstall"><b>7</b>卸载与兼容性</a>
+  <a href="#contact"><b>8</b>联系与支持</a>
+</nav>
+
+<section id="install">
+  <h2><span class="num">01</span>安装与自动加载</h2>
+  <p>插件采用 OBS 标准的目录结构。把压缩包里的 <code>obs-plugins</code> 和 <code>data</code> 两个文件夹直接合并进 <strong>OBS 安装目录</strong>，OBS 下次启动时会自动扫描并加载，不需要执行安装程序，也不需要改任何配置。</p>
+
+  <ol class="steps">
+    <li><strong>完全退出 OBS。</strong>包括右下角托盘里的后台进程，确保 OBS 没有占用插件文件。</li>
+    <li><strong>找到 OBS 安装目录。</strong>安装版通常是 <code>C:\Program Files\obs-studio</code>；便携版就是 <code>obs64.exe</code> 所在的文件夹。你也可以在 OBS 里打开「文件 → 显示设置文件夹」，再回到上一级确认。</li>
+    <li><strong>把 <code>obs-plugins</code> 和 <code>data</code> 拖进 OBS 安装目录。</strong>系统询问是否合并时选择「是」，询问是否替换同名文件时选择「替换」。这两个文件夹里只多出本插件自己的文件，不会影响 OBS 自带插件。</li>
+    <li><strong>重新启动 OBS。</strong>在「来源 → 添加」里能看到「美颜相机」，在任意源右键「滤镜 → 添加」里能看到「美颜相机滤镜」，就说明已自动加载成功。</li>
+  </ol>
+
+  <h3>安装后的文件位置</h3>
+  <div class="tree">
+<span class="dir">obs-studio/</span>
+├─ <span class="dir">obs-plugins/</span>
+│  └─ <span class="dir">64bit/</span>
+│     └─ obs-beauty-camera.dll              <span class="note">插件主程序</span>
+└─ <span class="dir">data/</span>
+   └─ <span class="dir">obs-plugins/</span>
+      └─ <span class="dir">obs-beauty-camera/</span>
+         ├─ beauty.effect                   <span class="note">GPU 着色器</span>
+         ├─ manual.html                     <span class="note">这份说明书（属性面板按钮会打开它）</span>
+         └─ <span class="dir">locale/</span>
+            ├─ en-US.ini                    <span class="note">英文界面</span>
+            └─ zh-CN.ini                    <span class="note">中文界面</span>
+  </div>
+
+  <div class="callout info">
+    <p><strong>为什么能自动加载？</strong>OBS 启动时会自动扫描 <code>obs-plugins/64bit</code> 下的 DLL，并按模块名读取 <code>data/obs-plugins/&lt;模块名&gt;</code> 里的着色器和语言文件。本插件严格遵循这一结构，所以文件放对位置即可生效。</p>
+  </div>
+
+  <div class="callout">
+    <p><strong>替换旧版前请先退出 OBS。</strong>如果 OBS 正在运行，DLL 会被占用，复制会失败或留下旧文件。关闭 OBS 后再覆盖，然后重新启动。</p>
+  </div>
+</section>
+
+<section id="usage">
+  <h2><span class="num">02</span>两种使用方式</h2>
+  <div class="grid">
+    <div class="card">
+      <h4>方式一：美颜相机（自带摄像头）</h4>
+      <p>「来源 → 添加 → 美颜相机」。在属性里直接选择摄像头、分辨率、帧率、视频格式、色彩空间、色彩范围、缓冲和垂直翻转，同时调节全部美颜参数。</p>
+      <p class="muted">摄像头采集由插件内部创建，画面已经带美颜，不需要再手动加滤镜。适合只用 OBS 做直播或录制的场景。</p>
+    </div>
+    <div class="card">
+      <h4>方式二：美颜相机滤镜</h4>
+      <p>右键任意视频源 →「滤镜 → 添加 → 美颜相机滤镜」。适合已有的摄像头采集、采集卡、媒体源、视频文件或虚拟摄像头画面。</p>
+      <p class="muted">滤镜会跟随源的分辨率自动适配，除美颜区域外，背景像素保持原样。</p>
+    </div>
+  </div>
+
+  <h3>属性面板在哪里</h3>
+  <p>双击来源打开属性，或点击来源下方的「属性」按钮。最上方是<strong>说明书</strong>分组，点「打开使用说明书」随时打开这份文件；下面是摄像头、美颜开关与预设、磨皮美肤、眼部与牙齿、面部追踪与脸型、立体与阴影、美妆、滤镜色调、美体与背景、色彩调整、画面特效等分组。</p>
+
+  <h3>对比模式</h3>
+  <p>在「美颜开关与预设 → 对比模式」中可选择：<strong>关闭</strong>（正常美颜）、<strong>仅显示原图</strong>（临时查看未处理画面）、<strong>左右分屏对比</strong>（左半原图、右半美颜，中间有白色分割线）。调参时用分屏最直观，正式开播前记得切回「关闭」。</p>
+</section>
+
+<section id="preset">
+  <h2><span class="num">03</span>推荐起点：精致</h2>
+  <p>v2.1.0 的默认预设是 <strong>精致（推荐）</strong>：轻磨皮、轻美白、保留皮肤纹理，加上适度的清晰度和通透感，正面看起来干净、真实、不假面。新建来源或滤镜后不需要调任何滑杆，直接就能用。</p>
+  <div class="grid">
+    <div class="card">
+      <h4>为什么要保留纹理</h4>
+      <p>磨皮过重会把毛孔、胡须和五官边缘一起抹平，画面显得糊、像塑料。精致预设把磨皮控制在轻中度，同时用清晰度和轻锐化把眼睛、眉毛、发丝拉回来。</p>
+    </div>
+    <div class="card">
+      <h4>想更明显怎么办</h4>
+      <p>在预设里选择「直播」或「奶油肌」，或者切到「自定义」后单独提高磨皮、美白、红润。每一项都能独立调，不会牵一发动全身。</p>
+    </div>
+  </div>
+
+  <h3>内置预设</h3>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>预设</th><th>风格</th><th>适合场景</th></tr></thead>
+      <tbody>
+        <tr><td><strong>精致</strong><span class="tag rec">默认</span></td><td>轻磨皮、轻美白、保留纹理、通透清晰</td><td>日常直播、会议、录课，想要真实自然</td></tr>
+        <tr><td><strong>自然</strong></td><td>极轻处理，几乎没有妆感</td><td>不喜欢明显美颜、皮肤底子较好</td></tr>
+        <tr><td><strong>清透</strong></td><td>提亮、降黄、增加通透感</td><td>室内暖光、画面发黄发闷</td></tr>
+        <tr><td><strong>奶油肌</strong></td><td>柔焦、低对比、暖调</td><td>近景人像、温柔氛围</td></tr>
+        <tr><td><strong>立体</strong></td><td>加强轮廓、侧影与对比</td><td>正面光偏平、需要五官更立体</td></tr>
+        <tr><td><strong>直播</strong></td><td>磨皮美白偏强，气色明显</td><td>平台直播、需要远看也精神</td></tr>
+        <tr><td><strong>甜美</strong></td><td>红润、唇色与腮红更明显</td><td>偏可爱风格、短视频</td></tr>
+        <tr><td><strong>冷白</strong></td><td>降暖、提亮、偏冷白</td><td>暖黄灯光、想显白</td></tr>
+        <tr><td><strong>港风</strong></td><td>高对比、暖调、胶片感</td><td>复古氛围、夜景人像</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="callout">
+    <p>选择预设后，被预设接管的滑杆会暂时锁定，避免误改。想逐项微调时，把预设切到「自定义」，滑杆会解锁并保留当前数值。</p>
+  </div>
+</section>
+
+<section id="params">
+  <h2><span class="num">04</span>参数说明</h2>
+
+  <h3>美颜开关与预设</h3>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>参数</th><th>作用</th><th>建议</th></tr></thead>
+      <tbody>
+        <tr><td><strong>启用美颜</strong></td><td>总开关。关闭后画面完全等于原始输入。</td><td>对比效果或临时排障时关闭</td></tr>
+        <tr><td><strong>美颜总强度</strong></td><td>统一缩放磨皮、美白、红润、清晰度、脸型、妆容、色调等强度。</td><td>默认 100；想整体减弱调到 70–85</td></tr>
+        <tr><td><strong>对比模式</strong></td><td>正常 / 仅原图 / 左右分屏。</td><td>调参用分屏，正式使用切回关闭</td></tr>
+        <tr><td><strong>一键预设</strong></td><td>9 套风格化参数组合。</td><td>新手先用「精致」，再尝试其他风格</td></tr>
+        <tr><td><strong>恢复默认美颜参数</strong></td><td>把所有美颜数值恢复到「精致」预设。</td><td>调乱了就点一下</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>磨皮美肤</h3>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>参数</th><th>作用</th><th>建议</th></tr></thead>
+      <tbody>
+        <tr><td><strong>磨皮</strong></td><td>双边滤波平滑皮肤，保留五官边缘。</td><td>精致 32；直播可到 45–55，不建议超过 65</td></tr>
+        <tr><td><strong>美白</strong></td><td>提亮肤色并压低黄气，保护高光不过曝。</td><td>20–30 自然；暖光环境可略高</td></tr>
+        <tr><td><strong>红润气色</strong></td><td>给中间调皮肤加轻微血色。</td><td>5–15，气色差时再提高</td></tr>
+        <tr><td><strong>清晰度（锐化）</strong></td><td>反锐化增强细节，让眼睛、眉毛、发丝更利。</td><td>15–25；磨皮越高，清晰度也要跟上</td></tr>
+        <tr><td><strong>祛斑祛痘</strong></td><td>用多半径皮肤均值修复孤立深色斑点，避开眼、鼻、嘴唇和黑眼圈。</td><td>25–40；斑点明显时提高</td></tr>
+        <tr><td><strong>皮肤细节保护</strong></td><td>保留毛孔和细纹，防止磨皮过度。</td><td>55–70，皮肤纹理感更真实</td></tr>
+        <tr><td><strong>磨皮半径</strong></td><td>平滑的采样范围。</td><td>3–4.5；越大越柔，但细节越少</td></tr>
+        <tr><td><strong>肤色过渡柔度</strong></td><td>脸部美颜区域边缘的过渡宽度。</td><td>50–60，避免出现明显边界</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>眼部与牙齿</h3>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>参数</th><th>作用</th><th>建议</th></tr></thead>
+      <tbody>
+        <tr><td><strong>眼部提亮</strong></td><td>只作用于眼白附近，让眼神更清亮。</td><td>12–20；过高会显得不自然</td></tr>
+        <tr><td><strong>牙齿美白</strong></td><td>识别嘴部低饱和高亮区域，单独提亮牙齿，不改变唇色。</td><td>8–15；张嘴露齿时效果明显</td></tr>
+        <tr><td><strong>黑眼圈淡化</strong></td><td>在眼下区域减轻暗沉。</td><td>12–20；熬夜后可以略高</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>面部追踪与脸型</h3>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>参数</th><th>作用</th><th>建议</th></tr></thead>
+      <tbody>
+        <tr><td><strong>启用面部定位</strong></td><td>把磨皮、脸型、妆容等限制在脸部区域。</td><td>保持开启</td></tr>
+        <tr><td><strong>自动面部追踪</strong></td><td>每 0.25 秒在本地检测最多 3 张脸，自动替换手动椭圆。</td><td>单人、双人场景都建议开启</td></tr>
+        <tr><td><strong>面部中心 X / Y</strong></td><td>手动椭圆的位置，占画面宽高的百分比。</td><td>自动追踪失效时手动画准</td></tr>
+        <tr><td><strong>面部范围</strong></td><td>手动椭圆的大小。</td><td>让椭圆包住脸，不要切到发际线</td></tr>
+        <tr><td><strong>瘦脸</strong></td><td>轻微内收脸颊两侧。</td><td>3–8；超过 12 容易变形</td></tr>
+        <tr><td><strong>大眼</strong></td><td>局部放大眼部区域。</td><td>3–8；请配合面部定位使用</td></tr>
+        <tr><td><strong>下巴微抬</strong></td><td>轻微收短下巴。</td><td>0–5，按脸型微调</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>立体与阴影</h3>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>参数</th><th>作用</th><th>建议</th></tr></thead>
+      <tbody>
+        <tr><td><strong>面部立体感</strong></td><td>在脸颊与鼻梁做轻微明暗塑形。</td><td>3–8，正面光偏平时更有效</td></tr>
+        <tr><td><strong>侧影修容</strong></td><td>压暗脸部外缘，收窄轮廓。</td><td>0–10；过高会显脏</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>美妆</h3>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>参数</th><th>作用</th><th>建议</th></tr></thead>
+      <tbody>
+        <tr><td><strong>妆容风格</strong></td><td>自然 / 蜜桃 / 玫瑰，决定唇色、腮红、眼影的基础色。</td><td>日常选自然，上镜选蜜桃或玫瑰</td></tr>
+        <tr><td><strong>唇色</strong></td><td>提升唇部饱和度与红润度，同时保留唇形。</td><td>5–12</td></tr>
+        <tr><td><strong>腮红</strong></td><td>在脸颊苹果肌区域加淡淡血色。</td><td>3–8</td></tr>
+        <tr><td><strong>眼影</strong></td><td>在上眼睑加轻微色调。</td><td>2–6</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>滤镜色调</h3>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>参数</th><th>作用</th><th>建议</th></tr></thead>
+      <tbody>
+        <tr><td><strong>滤镜风格</strong></td><td>清透 / 奶油 / 胶片 / 冷白 / 暖肤。</td><td>「清透」最适合日常，干净不偏色</td></tr>
+        <tr><td><strong>滤镜强度</strong></td><td>色调叠加的程度。</td><td>35–55；过高会失去真实肤色</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>美体与背景</h3>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>参数</th><th>作用</th><th>建议</th></tr></thead>
+      <tbody>
+        <tr><td><strong>美体瘦身</strong></td><td>基于人脸尺度的 2D 屏幕空间近似，轻微收窄肩身。</td><td>0–10；多人或复杂背景慎用</td></tr>
+        <tr><td><strong>背景虚化</strong></td><td>画面边缘渐进模糊，突出人物。</td><td>0–15；需要明显景深时再提高</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>色彩调整与画面特效</h3>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>参数</th><th>作用</th><th>建议</th></tr></thead>
+      <tbody>
+        <tr><td><strong>亮度 / 对比度 / 饱和度 / 色温</strong></td><td>全局色彩，不受人脸区域限制。</td><td>小步微调；色温向左偏冷、向右偏暖</td></tr>
+        <tr><td><strong>柔光发光</strong></td><td>高光溢出，画面更柔和。</td><td>0–10</td></tr>
+        <tr><td><strong>胶片颗粒</strong></td><td>叠加细微颗粒，增加质感。</td><td>0–8；直播建议关闭</td></tr>
+        <tr><td><strong>暗角</strong></td><td>压暗四角，聚焦人物。</td><td>0–15</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section id="tips">
+  <h2><span class="num">05</span>调参建议</h2>
+  <div class="grid">
+    <div class="card">
+      <h4>先光后美颜</h4>
+      <p>先把摄像头曝光、白平衡和现场灯光调好，再用美颜。光线不足时强行提高美白和磨皮，画面会发灰、噪点明显。</p>
+    </div>
+    <div class="card">
+      <h4>磨皮和清晰度成对调</h4>
+      <p>磨皮提高后，清晰度也要略微提高，眼睛和五官才不会糊。皮肤细节保护保持在 55 以上，纹理更真实。</p>
+    </div>
+    <div class="card">
+      <h4>一次只改一个滑杆</h4>
+      <p>配合「左右分屏对比」，每次只改一个参数，确认效果后再改下一个，比一次拉满更容易找到合适值。</p>
+    </div>
+    <div class="card">
+      <h4>脸型类参数要克制</h4>
+      <p>瘦脸、大眼、下巴、美体属于局部变形，超过 10–12 容易出现边缘拉扯。自动追踪正常时再使用。</p>
+    </div>
+  </div>
+</section>
+
+<section id="faq">
+  <h2><span class="num">06</span>常见问题</h2>
+
+  <div class="qa">
+    <h4>添加来源里找不到「美颜相机」？</h4>
+    <p>先确认 OBS 是 64 位版本，并检查 <code>obs-plugins/64bit/obs-beauty-camera.dll</code> 是否存在。再查看 OBS 日志（帮助 → 日志文件 → 查看当前日志）里是否有 <code>[beauty-camera] module loaded</code>。如果 DLL 放错层级、被安全软件拦截，或 OBS 没有完全退出就覆盖文件，都会导致加载失败。</p>
+  </div>
+  <div class="qa">
+    <h4>摄像头列表是空的？</h4>
+    <p>「美颜相机」来源依赖 OBS 自带的 <code>win-dshow</code> 视频采集插件。如果它被删除或禁用，可以改用「美颜相机滤镜」加在任意摄像头源上，美颜功能完全一样。</p>
+  </div>
+  <div class="qa">
+    <h4>自动追踪不准或画面里没有脸？</h4>
+    <p>自动追踪基于肤色连通区域，不是深度学习关键点。肤色接近的背景、极端侧脸、口罩或大面积遮挡可能影响定位。此时关闭「自动面部追踪」，用「面部中心 X / Y」和「面部范围」手动对准脸部即可。</p>
+  </div>
+  <div class="qa">
+    <h4>画面变糊、细节没了？</h4>
+    <p>降低「磨皮」，提高「皮肤细节保护」和「清晰度（锐化）」。如果使用了「奶油肌」预设，切回「精致」或「自定义」。</p>
+  </div>
+  <div class="qa">
+    <h4>肤色发灰、发蓝或偏色？</h4>
+    <p>把「滤镜风格」切到「关闭」或「清透」，把「滤镜强度」降到 30–45；再用「色温」向暖调微调。也要检查摄像头本身的白平衡。</p>
+  </div>
+  <div class="qa">
+    <h4>说明书按钮打不开？</h4>
+    <p>说明书文件位于 <code>data/obs-plugins/obs-beauty-camera/manual.html</code>。如果被删除或移动，按钮会失效；从安装包里把 <code>manual.html</code> 复制回该目录即可。也可以直接用浏览器打开这个文件。</p>
+  </div>
+  <div class="qa">
+    <h4>会影响 OBS 自带插件或其他美颜插件吗？</h4>
+    <p>不会。本插件使用独立的模块名 <code>obs-beauty-camera</code>、独立的来源 ID 和滤镜 ID，只新增自己的文件，不修改 OBS 程序和其他插件。</p>
+  </div>
+  <div class="qa">
+    <h4>需要联网或登录吗？</h4>
+    <p>不需要。所有处理都在本机显卡上完成，不上传画面、不校验账号、没有会员限制。自动追踪同样只在本地运行。</p>
+  </div>
+</section>
+
+<section id="uninstall">
+  <h2><span class="num">07</span>卸载与兼容性</h2>
+  <h3>卸载</h3>
+  <ol class="steps">
+    <li>完全退出 OBS。</li>
+    <li>删除 <code>obs-plugins/64bit/obs-beauty-camera.dll</code>。</li>
+    <li>删除整个 <code>data/obs-plugins/obs-beauty-camera/</code> 文件夹。</li>
+    <li>重新启动 OBS。</li>
+  </ol>
+  <p class="muted">卸载不会影响 OBS 自带插件，也不会删除你的场景和录制文件。</p>
+
+  <h3>兼容性</h3>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>项目</th><th>支持情况</th></tr></thead>
+      <tbody>
+        <tr><td>操作系统</td><td>Windows 10 / 11，64 位</td></tr>
+        <tr><td>OBS 版本</td><td>使用 OBS 29.1.3 头文件与导入库构建，已在 OBS 29.1.3 x64 实机验证；使用长期稳定的公开插件 API，预期兼容 OBS 28 及以上 x64 版本</td></tr>
+        <tr><td>显卡</td><td>支持 Direct3D 11 的显卡；OBS 默认渲染器即可</td></tr>
+        <tr><td>运行库</td><td>仅依赖 <code>obs.dll</code>、OBS 自带 <code>win-dshow</code> 和系统 UCRT，无第三方运行库</td></tr>
+        <tr><td>32 位 OBS</td><td>不支持</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="callout info">
+    <p>本插件为原创实现，不包含任何第三方商业 SDK、加密模块或在线授权逻辑。请仅在你拥有授权的设备上使用。</p>
+  </div>
+</section>
+
+<section id="contact">
+  <h2><span class="num">08</span>联系与支持</h2>
+  <p>如果这个插件对你有帮助，或者在使用中遇到问题，可以通过下面的方式联系我。微信扫码添加好友、微信支付赞赏，或通过 QQ 交流都可以。</p>
+
+  <figure class="contact-card">
+    <img src="contact.png" alt="曾云锋 × 万阳 联系与支持海报：微信加好友、微信支付赞赏、QQ 3082506434">
+    <figcaption>微信扫码添加好友 · 微信支付赞赏 · QQ 3082506434</figcaption>
+  </figure>
+
+  <div class="grid">
+    <div class="card">
+      <h4>微信加好友</h4>
+      <p>扫码添加微信，方便交流插件使用、参数调整和问题排查。</p>
+    </div>
+    <div class="card">
+      <h4>微信支付赞赏</h4>
+      <p>如果插件或说明书对你有帮助，欢迎自愿支持；赞赏完全自愿，不影响任何功能使用。</p>
+    </div>
+    <div class="card">
+      <h4>QQ 交流</h4>
+      <p>QQ：<strong>3082506434</strong>。有任何问题，欢迎随时联系。</p>
+    </div>
+  </div>
+
+  <div class="callout info">
+    <p>插件完全本地运行、免费使用，不依赖联网或账号；赞赏仅用于支持后续维护与更新。</p>
+  </div>
+</section>
+
+<footer>
+  美颜相机插件 v2.1.0 · 本地离线 · 内置说明书与联系支持 · 生成于 2026-11-01
+</footer>
+
+</div>
+</body>
+</html>

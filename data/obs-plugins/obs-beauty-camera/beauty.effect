@@ -1,0 +1,807 @@
+uniform float4x4 ViewProj;
+uniform texture2d image;
+
+uniform float2 texel;
+uniform float aspect;
+uniform float pixel_scale;
+uniform float compare_mode;
+
+uniform float smooth_amount;
+uniform float whiten_amount;
+uniform float rosy_amount;
+uniform float clarity_amount;
+uniform float saturation;
+uniform float temperature;
+uniform float contrast;
+uniform float brightness;
+
+uniform float slim_amount;
+uniform float eye_amount;
+uniform float chin_amount;
+
+uniform float skin_protect;
+uniform float mask_softness;
+uniform float smooth_radius;
+
+uniform float face_enabled;
+uniform float2 face_center;
+uniform float face_radius;
+
+uniform float time_sec;
+
+uniform float spot_amount;
+uniform float eye_bright_amount;
+uniform float teeth_amount;
+uniform float dark_circle_amount;
+uniform float contour_amount;
+uniform float side_shadow_amount;
+
+uniform float makeup_style;
+uniform float lip_amount;
+uniform float blush_amount;
+uniform float eyeshadow_amount;
+
+uniform float look_mode;
+uniform float look_amount;
+
+uniform float body_amount;
+uniform float bg_blur_amount;
+uniform float glow_amount;
+uniform float grain_amount;
+uniform float vignette_amount;
+
+uniform float face_count;
+uniform float face0_on;
+uniform float2 face0_center;
+uniform float face0_radius;
+uniform float face1_on;
+uniform float2 face1_center;
+uniform float face1_radius;
+uniform float face2_on;
+uniform float2 face2_center;
+uniform float face2_radius;
+
+sampler_state def_sampler {
+	Filter   = Linear;
+	AddressU = Clamp;
+	AddressV = Clamp;
+};
+
+struct VertInOut {
+	float4 pos : POSITION;
+	float2 uv  : TEXCOORD0;
+};
+
+VertInOut VSDefault(VertInOut vert_in)
+{
+	VertInOut vert_out;
+	vert_out.pos = mul(float4(vert_in.pos.xyz, 1.0), ViewProj);
+	vert_out.uv = vert_in.uv;
+	return vert_out;
+}
+
+float luma(float3 c)
+{
+	return dot(c, float3(0.299, 0.587, 0.114));
+}
+
+float saturation_of(float3 c)
+{
+	float mx = max(c.r, max(c.g, c.b));
+	float mn = min(c.r, min(c.g, c.b));
+	return (mx - mn) / max(mx, 0.0001);
+}
+
+float skin_mask(float3 c, float softness)
+{
+	float cb = dot(c, float3(-0.168736, -0.331264, 0.5)) + 0.5;
+	float cr = dot(c, float3(0.5, -0.418688, -0.081312)) + 0.5;
+	float s = 0.015 + softness * 0.055;
+
+	float m = smoothstep(0.285 - s, 0.325 + s, cb);
+	m *= 1.0 - smoothstep(0.455 - s, 0.495 + s, cb);
+	m *= smoothstep(0.505 - s, 0.545 + s, cr);
+	m *= 1.0 - smoothstep(0.665 - s, 0.705 + s, cr);
+
+	float mx = max(c.r, max(c.g, c.b));
+	float mn = min(c.r, min(c.g, c.b));
+	m *= smoothstep(0.02, 0.07, mx - mn);
+
+	/* Hair, brows and beards pass the chroma test; require skin-like luma. */
+	m *= smoothstep(0.16, 0.28, luma(c));
+
+	return saturate(m);
+}
+
+float ellipse_mask(float2 uv, float2 center, float rx, float ry, float edge)
+{
+	float2 q = (uv - center) /
+		   float2(max(rx, 0.0001), max(ry, 0.0001));
+	return 1.0 - smoothstep(1.0 - edge, 1.0 + edge, length(q));
+}
+
+float face_mask_one(float2 uv, float2 center, float radius, float on)
+{
+	if (on < 0.5)
+		return 0.0;
+
+	float2 q = ((uv - center) * float2(aspect, 1.0)) /
+		   max(radius, 0.05);
+	float r = length(q);
+	float edge0 = 0.95 - mask_softness * 0.20;
+	float edge1 = 1.05 + mask_softness * 0.30;
+	return 1.0 - smoothstep(edge0, edge1, r);
+}
+
+float face_mask_total(float2 uv)
+{
+	if (face_enabled < 0.5)
+		return 1.0;
+
+	if (face_count < 0.5)
+		return face_mask_one(uv, face_center, max(face_radius, 0.05),
+				     1.0);
+
+	float m = face_mask_one(uv, face0_center, face0_radius, face0_on);
+	m = max(m, face_mask_one(uv, face1_center, face1_radius, face1_on));
+	m = max(m, face_mask_one(uv, face2_center, face2_radius, face2_on));
+	return m;
+}
+
+float2 ref_center()
+{
+	if (face_count > 0.5 && face0_on > 0.5)
+		return face0_center;
+	if (face_enabled > 0.5)
+		return face_center;
+	return float2(0.5, 0.32);
+}
+
+float ref_radius()
+{
+	if (face_count > 0.5 && face0_on > 0.5)
+		return max(face0_radius, 0.05);
+	if (face_enabled > 0.5)
+		return max(face_radius, 0.05);
+	return 0.22;
+}
+
+float2 warp_one_face(float2 uv, float2 center, float radius, float on)
+{
+	if (on < 0.5 || radius < 0.01)
+		return uv;
+
+	float2 d = uv - center;
+	float2 q = (d * float2(aspect, 1.0)) / max(radius, 0.05);
+	float r = length(q);
+	float inside = 1.0 - smoothstep(0.85, 1.25, r);
+	float2 warped = uv;
+
+	/* Slim: sample further out on both cheeks so the face reads narrower. */
+	float side = smoothstep(0.05, 0.65, abs(q.x)) * inside;
+	float band = smoothstep(-0.85, -0.10, q.y) *
+		     (1.0 - smoothstep(0.75, 1.15, q.y));
+	warped.x += d.x * slim_amount * 0.16 * side * band;
+
+	/* Chin: sample above the jaw so the chin appears lifted. */
+	float chin = smoothstep(0.15, 0.80, q.y) *
+		     (1.0 - smoothstep(0.95, 1.30, r)) *
+		     (1.0 - smoothstep(0.35, 0.85, abs(q.x)));
+	warped.y -= chin * chin_amount * 0.035 * max(radius, 0.05);
+
+	/* Eyes: pull samples towards each eye centre to magnify them. */
+	float eye_r = max(radius * 0.20, 0.04);
+	float2 eye_l = center +
+		       float2(-radius * 0.33 / max(aspect, 0.001),
+			      -radius * 0.12);
+	float2 eye_r_pos = center +
+			   float2(radius * 0.33 / max(aspect, 0.001),
+				  -radius * 0.12);
+	float fl = 1.0 - smoothstep(0.0, eye_r,
+				    length((warped - eye_l) *
+					   float2(aspect, 1.0)));
+	float fr = 1.0 - smoothstep(0.0, eye_r,
+				    length((warped - eye_r_pos) *
+					   float2(aspect, 1.0)));
+	warped = lerp(warped, eye_l, fl * eye_amount * 0.30);
+	warped = lerp(warped, eye_r_pos, fr * eye_amount * 0.30);
+
+	return warped;
+}
+
+float2 warp_uv(float2 uv)
+{
+	float2 w = uv;
+
+	if (face_enabled > 0.5) {
+		if (face_count > 0.5) {
+			w = warp_one_face(w, face0_center, face0_radius,
+					  face0_on);
+			w = warp_one_face(w, face1_center, face1_radius,
+					  face1_on);
+			w = warp_one_face(w, face2_center, face2_radius,
+					  face2_on);
+		} else {
+			w = warp_one_face(w, face_center, max(face_radius, 0.05),
+					  1.0);
+		}
+	}
+
+	/* Body: pinch the region below the primary face. */
+	if (body_amount > 0.001) {
+		float2 c = ref_center();
+		float r = ref_radius();
+		float2 d = uv - c;
+		float2 q = (d * float2(aspect, 1.0)) / r;
+		float band = smoothstep(1.2, 2.0, q.y) *
+			     (1.0 - smoothstep(4.6, 5.6, q.y));
+		float sides = smoothstep(0.15, 0.95, abs(q.x)) *
+			      (1.0 - smoothstep(1.6, 2.2, abs(q.x)));
+		w.x += d.x * body_amount * 0.18 * band * sides;
+	}
+
+	return w;
+}
+
+float eye_region_one(float2 uv, float2 c, float radius, float on)
+{
+	if (on < 0.5)
+		return 0.0;
+
+	float rx = radius * 0.26 / max(aspect, 0.001);
+	float ry = radius * 0.13;
+	float2 l = c + float2(-radius * 0.33 / max(aspect, 0.001),
+			      -radius * 0.12);
+	float2 r = c + float2(radius * 0.33 / max(aspect, 0.001),
+			      -radius * 0.12);
+	return max(ellipse_mask(uv, l, rx, ry, 0.45),
+		   ellipse_mask(uv, r, rx, ry, 0.45));
+}
+
+float eye_region_total(float2 uv)
+{
+	if (face_enabled < 0.5)
+		return 0.0;
+
+	if (face_count < 0.5)
+		return eye_region_one(uv, face_center,
+				      max(face_radius, 0.05), 1.0);
+
+	float m = eye_region_one(uv, face0_center, face0_radius, face0_on);
+	m = max(m, eye_region_one(uv, face1_center, face1_radius, face1_on));
+	m = max(m, eye_region_one(uv, face2_center, face2_radius, face2_on));
+	return m;
+}
+
+float dark_circle_one(float2 uv, float2 c, float radius, float on)
+{
+	if (on < 0.5)
+		return 0.0;
+
+	float rx = radius * 0.22 / max(aspect, 0.001);
+	float ry = radius * 0.12;
+	float2 l = c + float2(-radius * 0.33 / max(aspect, 0.001),
+			      -radius * 0.01);
+	float2 r = c + float2(radius * 0.33 / max(aspect, 0.001),
+			      -radius * 0.01);
+	return max(ellipse_mask(uv, l, rx, ry, 0.55),
+		   ellipse_mask(uv, r, rx, ry, 0.55));
+}
+
+float dark_circle_total(float2 uv)
+{
+	if (face_enabled < 0.5)
+		return 0.0;
+
+	if (face_count < 0.5)
+		return dark_circle_one(uv, face_center,
+				       max(face_radius, 0.05), 1.0);
+
+	float m = dark_circle_one(uv, face0_center, face0_radius, face0_on);
+	m = max(m, dark_circle_one(uv, face1_center, face1_radius,
+				   face1_on));
+	m = max(m, dark_circle_one(uv, face2_center, face2_radius,
+				   face2_on));
+	return m;
+}
+
+float mouth_region_one(float2 uv, float2 c, float radius, float on)
+{
+	if (on < 0.5)
+		return 0.0;
+
+	float2 m = c + float2(0.0, radius * 0.62);
+	return ellipse_mask(uv, m, radius * 0.31 / max(aspect, 0.001),
+			    radius * 0.13, 0.55);
+}
+
+float mouth_region_total(float2 uv)
+{
+	if (face_enabled < 0.5)
+		return 0.0;
+
+	if (face_count < 0.5)
+		return mouth_region_one(uv, face_center,
+					max(face_radius, 0.05), 1.0);
+
+	float m = mouth_region_one(uv, face0_center, face0_radius, face0_on);
+	m = max(m, mouth_region_one(uv, face1_center, face1_radius,
+				    face1_on));
+	m = max(m, mouth_region_one(uv, face2_center, face2_radius,
+				    face2_on));
+	return m;
+}
+
+float nose_region_one(float2 uv, float2 c, float radius, float on)
+{
+	if (on < 0.5)
+		return 0.0;
+
+	float2 m = c + float2(0.0, radius * 0.32);
+	return ellipse_mask(uv, m, radius * 0.20 / max(aspect, 0.001),
+			    radius * 0.18, 0.55);
+}
+
+float nose_region_total(float2 uv)
+{
+	if (face_enabled < 0.5)
+		return 0.0;
+
+	if (face_count < 0.5)
+		return nose_region_one(uv, face_center,
+				       max(face_radius, 0.05), 1.0);
+
+	float m = nose_region_one(uv, face0_center, face0_radius, face0_on);
+	m = max(m, nose_region_one(uv, face1_center, face1_radius, face1_on));
+	m = max(m, nose_region_one(uv, face2_center, face2_radius, face2_on));
+	return m;
+}
+
+float blush_one(float2 uv, float2 c, float radius, float on)
+{
+	if (on < 0.5)
+		return 0.0;
+
+	float rx = radius * 0.27 / max(aspect, 0.001);
+	float ry = radius * 0.16;
+	float2 l = c + float2(-radius * 0.45 / max(aspect, 0.001),
+			      radius * 0.30);
+	float2 r = c + float2(radius * 0.45 / max(aspect, 0.001),
+			      radius * 0.30);
+	return max(ellipse_mask(uv, l, rx, ry, 0.60),
+		   ellipse_mask(uv, r, rx, ry, 0.60));
+}
+
+float blush_total(float2 uv)
+{
+	if (face_enabled < 0.5)
+		return 0.0;
+
+	if (face_count < 0.5)
+		return blush_one(uv, face_center, max(face_radius, 0.05), 1.0);
+
+	float m = blush_one(uv, face0_center, face0_radius, face0_on);
+	m = max(m, blush_one(uv, face1_center, face1_radius, face1_on));
+	m = max(m, blush_one(uv, face2_center, face2_radius, face2_on));
+	return m;
+}
+
+float eyeshadow_one(float2 uv, float2 c, float radius, float on)
+{
+	if (on < 0.5)
+		return 0.0;
+
+	float rx = radius * 0.26 / max(aspect, 0.001);
+	float ry = radius * 0.10;
+	float2 l = c + float2(-radius * 0.33 / max(aspect, 0.001),
+			      -radius * 0.22);
+	float2 r = c + float2(radius * 0.33 / max(aspect, 0.001),
+			      -radius * 0.22);
+	return max(ellipse_mask(uv, l, rx, ry, 0.55),
+		   ellipse_mask(uv, r, rx, ry, 0.55));
+}
+
+float eyeshadow_total(float2 uv)
+{
+	if (face_enabled < 0.5)
+		return 0.0;
+
+	if (face_count < 0.5)
+		return eyeshadow_one(uv, face_center,
+				     max(face_radius, 0.05), 1.0);
+
+	float m = eyeshadow_one(uv, face0_center, face0_radius, face0_on);
+	m = max(m, eyeshadow_one(uv, face1_center, face1_radius,
+				 face1_on));
+	m = max(m, eyeshadow_one(uv, face2_center, face2_radius,
+				 face2_on));
+	return m;
+}
+
+float contour_one(float2 uv, float2 c, float radius, float on)
+{
+	if (on < 0.5)
+		return 0.0;
+
+	float2 q = ((uv - c) * float2(aspect, 1.0)) /
+		   max(radius, 0.05);
+	float r = length(q);
+	float edge = smoothstep(0.42, 0.92, r) *
+		     (1.0 - smoothstep(0.95, 1.18, r));
+	float cheek = smoothstep(0.35, 0.75, abs(q.x)) *
+		      smoothstep(-0.15, 0.45, q.y) *
+		      (1.0 - smoothstep(0.75, 1.05, r));
+	return max(edge * 0.55, cheek * 0.80);
+}
+
+float contour_total(float2 uv)
+{
+	if (face_enabled < 0.5)
+		return 0.0;
+
+	if (face_count < 0.5)
+		return contour_one(uv, face_center, max(face_radius, 0.05),
+				   1.0);
+
+	float m = contour_one(uv, face0_center, face0_radius, face0_on);
+	m = max(m, contour_one(uv, face1_center, face1_radius, face1_on));
+	m = max(m, contour_one(uv, face2_center, face2_radius, face2_on));
+	return m;
+}
+
+float side_one(float2 uv, float2 c, float radius, float on)
+{
+	if (on < 0.5)
+		return 0.0;
+
+	float2 q = ((uv - c) * float2(aspect, 1.0)) /
+		   max(radius, 0.05);
+	float r = length(q);
+	float side = smoothstep(0.82, 1.02, r) *
+		     (1.0 - smoothstep(1.15, 1.45, r));
+	side *= smoothstep(0.25, 0.60, abs(q.x));
+	side *= 1.0 - smoothstep(0.90, 1.15, abs(q.y));
+	return side;
+}
+
+float side_total(float2 uv)
+{
+	if (face_enabled < 0.5)
+		return 0.0;
+
+	if (face_count < 0.5)
+		return side_one(uv, face_center, max(face_radius, 0.05), 1.0);
+
+	float m = side_one(uv, face0_center, face0_radius, face0_on);
+	m = max(m, side_one(uv, face1_center, face1_radius, face1_on));
+	m = max(m, side_one(uv, face2_center, face2_radius, face2_on));
+	return m;
+}
+
+float3 bilateral_smooth(float2 uv, float3 center, float radius)
+{
+	float2 px = texel * radius * pixel_scale;
+
+	static const float2 dirs[8] = {
+		float2(1.0, 0.0),   float2(-1.0, 0.0),
+		float2(0.0, 1.0),   float2(0.0, -1.0),
+		float2(0.7071, 0.7071),  float2(-0.7071, 0.7071),
+		float2(0.7071, -0.7071), float2(-0.7071, -0.7071)
+	};
+
+	float3 sum = center;
+	float wsum = 1.0;
+
+	[unroll] for (int i = 0; i < 8; i++) {
+		float3 a = image.Sample(def_sampler, uv + dirs[i] * px * 0.55).rgb;
+		float3 b = image.Sample(def_sampler, uv + dirs[i] * px).rgb;
+
+		float3 da = a - center;
+		float3 db = b - center;
+		float wa = exp(-dot(da, da) * 28.0);
+		float wb = exp(-dot(db, db) * 28.0);
+
+		sum += a * wa + b * wb;
+		wsum += wa + wb;
+	}
+
+	return sum / wsum;
+}
+
+float3 spot_soft(float2 uv)
+{
+	float2 px = texel * 30.0 * pixel_scale;
+
+	static const float2 dirs[8] = {
+		float2(1.0, 0.0),   float2(-1.0, 0.0),
+		float2(0.0, 1.0),   float2(0.0, -1.0),
+		float2(0.7071, 0.7071),  float2(-0.7071, 0.7071),
+		float2(0.7071, -0.7071), float2(-0.7071, -0.7071)
+	};
+
+	float3 sum = float3(0.0, 0.0, 0.0);
+	[unroll] for (int i = 0; i < 8; i++)
+		sum += image.Sample(def_sampler, uv + dirs[i] * px).rgb;
+	return sum * 0.125;
+}
+
+float3 offscreen_blur(float2 uv)
+{
+	float2 px = texel * 1.5 * pixel_scale;
+
+	float3 c = image.Sample(def_sampler, uv + float2(px.x, 0.0)).rgb;
+	c += image.Sample(def_sampler, uv - float2(px.x, 0.0)).rgb;
+	c += image.Sample(def_sampler, uv + float2(0.0, px.y)).rgb;
+	c += image.Sample(def_sampler, uv - float2(0.0, px.y)).rgb;
+	return c * 0.25;
+}
+
+float3 wide_blur(float2 uv)
+{
+	float2 px = texel * pixel_scale;
+
+	float3 c = image.Sample(def_sampler, uv).rgb * 0.16;
+	c += image.Sample(def_sampler, uv + float2(px.x * 4.0, 0.0)).rgb * 0.07;
+	c += image.Sample(def_sampler, uv - float2(px.x * 4.0, 0.0)).rgb * 0.07;
+	c += image.Sample(def_sampler, uv + float2(0.0, px.y * 4.0)).rgb * 0.07;
+	c += image.Sample(def_sampler, uv - float2(0.0, px.y * 4.0)).rgb * 0.07;
+	c += image.Sample(def_sampler, uv + float2(px.x * 9.0, 0.0)).rgb * 0.045;
+	c += image.Sample(def_sampler, uv - float2(px.x * 9.0, 0.0)).rgb * 0.045;
+	c += image.Sample(def_sampler, uv + float2(0.0, px.y * 9.0)).rgb * 0.045;
+	c += image.Sample(def_sampler, uv - float2(0.0, px.y * 9.0)).rgb * 0.045;
+	c += image.Sample(def_sampler, uv + px * float2(7.0, 7.0)).rgb * 0.035;
+	c += image.Sample(def_sampler, uv - px * float2(7.0, 7.0)).rgb * 0.035;
+	c += image.Sample(def_sampler, uv + px * float2(7.0, -7.0)).rgb * 0.035;
+	c += image.Sample(def_sampler, uv + px * float2(-7.0, 7.0)).rgb * 0.035;
+	return c;
+}
+
+float portrait_mask(float2 uv)
+{
+	float2 c = ref_center();
+	float r = ref_radius();
+	float2 q = (uv - c) * float2(aspect, 1.0) / r;
+
+	float head = 1.0 - smoothstep(1.35, 1.85, length(q));
+	float body = (1.0 - smoothstep(1.70, 2.50, abs(q.x))) *
+		     smoothstep(-1.20, -0.30, q.y) *
+		     (1.0 - smoothstep(4.60, 5.60, q.y));
+	return saturate(max(head, body));
+}
+
+float3 apply_look(float3 c)
+{
+	if (look_mode < 0.5 || look_amount < 0.001)
+		return c;
+
+	float3 o = c;
+
+	if (look_mode < 1.5) {
+		/* 清透：轻微提亮与通透感，保持肤色中性 */
+		o = (o - 0.5) * 1.05 + 0.5;
+		o += float3(0.002, 0.010, 0.016);
+		o = lerp(o, saturate(o) * 1.015, 0.15);
+	} else if (look_mode < 2.5) {
+		/* 奶油 */
+		o = o * 0.94 + 0.055;
+		o = lerp(o, (o - 0.5) * 0.92 + 0.52, 0.35);
+		o += float3(0.035, 0.02, 0.0);
+	} else if (look_mode < 3.5) {
+		/* 胶片 */
+		float l = luma(o);
+		o = lerp(o, float3(l, l, l) * float3(1.02, 0.99, 0.96),
+			 0.18);
+		o = o * 0.96 + 0.015;
+		o += float3(0.0, 0.012, 0.0);
+	} else if (look_mode < 4.5) {
+		/* 冷白 */
+		float l = luma(o);
+		o = lerp(o, float3(l * 0.92, l * 0.97, l * 1.06), 0.22);
+		o *= 1.06;
+		o += 0.02;
+	} else {
+		/* 暖肤 */
+		o += float3(0.04, 0.018, -0.02);
+		o = (o - 0.5) * 1.04 + 0.5;
+	}
+
+	return lerp(c, saturate(o), look_amount);
+}
+
+float hash12(float2 p)
+{
+	float3 p3 = frac(float3(p.x, p.y, p.x) * 0.1031);
+	p3 += dot(p3, p3.yzx + 33.33);
+	return frac((p3.x + p3.y) * p3.z);
+}
+
+float4 PSDraw(VertInOut vert_in) : TARGET
+{
+	float2 uv0 = vert_in.uv;
+	float4 original = image.Sample(def_sampler, uv0);
+
+	float2 uv = warp_uv(uv0);
+	float4 base = image.Sample(def_sampler, uv);
+	float3 col = base.rgb;
+
+	float face = face_mask_total(uv0);
+	float skin = skin_mask(col, mask_softness);
+	float mask = face * skin;
+
+	if (smooth_amount > 0.001) {
+		float radius = 1.0 + smooth_radius * 1.8;
+		float3 blurred = bilateral_smooth(uv, col, radius);
+		float strength = smooth_amount * mask *
+				 (1.0 - skin_protect * 0.75);
+		col = lerp(col, blurred, saturate(strength));
+	}
+
+	if (spot_amount > 0.001) {
+		float3 soft = spot_soft(uv);
+		float spot_skin = smoothstep(0.55, 0.80,
+					     skin_mask(col, mask_softness));
+		spot_skin *= smoothstep(0.55, 0.80,
+					skin_mask(soft, mask_softness));
+		spot_skin *= 1.0 - nose_region_total(uv0) * 0.95;
+		spot_skin *= 1.0 - eye_region_total(uv0) * 0.90;
+		spot_skin *= 1.0 - dark_circle_total(uv0) * 0.85;
+
+		float diff = luma(soft) - luma(col);
+		float blemish = smoothstep(0.008, 0.045, diff);
+		float weight = blemish * spot_amount * mask * spot_skin;
+		col = lerp(col, soft, saturate(weight * 0.95));
+	}
+
+	if (clarity_amount > 0.001) {
+		float3 soft = offscreen_blur(uv);
+		col += (col - soft) * clarity_amount * 1.5;
+	}
+
+	float lum = luma(col);
+	float highlight = smoothstep(0.72, 0.98, lum);
+	float midtone = smoothstep(0.25, 0.55, lum) *
+			(1.0 - smoothstep(0.75, 0.98, lum));
+
+	col += (1.0 - col) * (whiten_amount * 0.38 * mask *
+			      (1.0 - highlight * 0.65));
+	col += float3(0.10, 0.03, 0.05) * (rosy_amount * 0.55 * mask * midtone);
+
+	if (contour_amount > 0.001) {
+		float shade = contour_total(uv0);
+		col *= 1.0 - shade * contour_amount * 0.24;
+	}
+
+	if (side_shadow_amount > 0.001) {
+		float side = side_total(uv0);
+		col *= 1.0 - side * side_shadow_amount * 0.30;
+	}
+
+	if (eye_bright_amount > 0.001) {
+		float region = eye_region_total(uv0);
+		float eye_l = luma(col);
+		float w = region * eye_bright_amount *
+			  (1.0 - skin * 0.60);
+		col += (1.0 - col) * w *
+		       (0.10 + 0.12 * smoothstep(0.55, 0.85, eye_l));
+	}
+
+	if (dark_circle_amount > 0.001) {
+		float region = dark_circle_total(uv0);
+		float l = luma(col);
+		float w = region * dark_circle_amount * mask *
+			  (1.0 - smoothstep(0.45, 0.75, l));
+		col += (1.0 - col) * w * 0.22;
+		col += float3(0.014, 0.005, -0.011) * w;
+	}
+
+	if (teeth_amount > 0.001) {
+		float region = mouth_region_total(uv0);
+		float white = smoothstep(0.45, 0.68, luma(col));
+		float lowsat = 1.0 - smoothstep(0.16, 0.32, saturation_of(col));
+		float w = region * teeth_amount * white * lowsat;
+		float l = luma(col);
+		col = lerp(col, float3(l, l, l) * 1.05, w * 0.68);
+		col += (1.0 - col) * w * 0.24;
+	}
+
+	if (makeup_style > 0.5 &&
+	    (lip_amount > 0.001 || blush_amount > 0.001 ||
+	     eyeshadow_amount > 0.001)) {
+		float3 lip_color = float3(0.72, 0.30, 0.32);
+		if (makeup_style > 2.5)
+			lip_color = float3(0.72, 0.18, 0.34);
+		else if (makeup_style > 1.5)
+			lip_color = float3(0.86, 0.36, 0.30);
+
+		if (lip_amount > 0.001) {
+			float w = mouth_region_total(uv0) * lip_amount;
+			float teeth_like =
+				smoothstep(0.50, 0.70, luma(col)) *
+				(1.0 - smoothstep(0.15, 0.30,
+						  saturation_of(col)));
+			w *= 1.0 - teeth_like * 0.90;
+			float l = luma(col);
+			float3 tint = lip_color * (0.55 + l * 0.75);
+			col = lerp(col, tint, saturate(w * 0.42));
+		}
+
+		if (blush_amount > 0.001) {
+			float w = blush_total(uv0) * blush_amount;
+			col = lerp(col,
+				   col * float3(1.12, 0.94, 0.95) +
+					   float3(0.045, 0.0, 0.008),
+				   saturate(w * 0.55));
+		}
+
+		if (eyeshadow_amount > 0.001) {
+			float w = eyeshadow_total(uv0) * eyeshadow_amount;
+			float3 tint = float3(0.42, 0.28, 0.36);
+			col = lerp(col, col * tint * 1.7 +
+					   float3(0.02, 0.0, 0.02),
+				   saturate(w * 0.35));
+		}
+	}
+
+	float3 soft = float3(0.0, 0.0, 0.0);
+	if (bg_blur_amount > 0.001 || glow_amount > 0.001)
+		soft = wide_blur(uv0);
+
+	if (bg_blur_amount > 0.001) {
+		float portrait = portrait_mask(uv0);
+		col = lerp(col, soft,
+			   bg_blur_amount * (1.0 - portrait) * 0.95);
+	}
+
+	float gray = luma(col);
+	col = lerp(float3(gray, gray, gray), col,
+		   1.0 + saturation * 0.70);
+	col += float3(temperature * 0.055, temperature * 0.005,
+		      -temperature * 0.055);
+	col = (col - 0.5) * (1.0 + contrast * 0.60) + 0.5;
+	col += brightness * 0.25;
+	col = saturate(col);
+
+	col = apply_look(col);
+
+	if (glow_amount > 0.001) {
+		float3 bright = max(soft - 0.62, 0.0);
+		col += bright * glow_amount * 0.55;
+	}
+
+	if (vignette_amount > 0.001) {
+		float2 vq = (uv0 - 0.5) * float2(1.15, 1.0);
+		float vign = smoothstep(0.35, 0.85, length(vq));
+		col *= 1.0 - vign * vignette_amount * 0.55;
+	}
+
+	if (grain_amount > 0.001) {
+		float n = hash12(uv0 * float2(1920.0, 1080.0) +
+				 time_sec * 37.0);
+		col += (n - 0.5) * grain_amount * 0.10;
+	}
+
+	col = saturate(col);
+
+	float3 final_rgb = col;
+
+	if (compare_mode > 1.5) {
+		float split = step(0.5, uv0.x);
+		final_rgb = lerp(original.rgb, final_rgb, split);
+
+		float divider = 1.0 - smoothstep(0.0, texel.x * 1.5,
+						 abs(uv0.x - 0.5));
+		final_rgb = lerp(final_rgb, float3(1.0, 1.0, 1.0),
+				 divider * 0.7);
+	}
+
+	return float4(final_rgb, original.a);
+}
+
+technique Draw
+{
+	pass
+	{
+		vertex_shader = VSDefault(vert_in);
+		pixel_shader  = PSDraw(vert_in);
+	}
+}
